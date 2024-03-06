@@ -81,7 +81,19 @@ typedef struct {
     uint64_t regs[RV_NUM_REGS];
     uint64_t pc;
 
-    uint8_t stack[STACK_SIZE];
+/*
+- Array of 8k bytes
+- sp(x2) should point to physical top (logical bottom)
+  ^^ regs[sp] / RV_SP = 2
+  -8 to allocate space 
+  *lb get a ptr --> b = *ptr (8 byte)
+  -uint8t -> alr part of stack
+    - if we want lw or a char, then we would type cast
+        -lw (uint32_t*) regs[sp] === w = *ptr (dereference and get the size that we want from type casting)
+        -sw (uint32_t*) regs[sp] === *ptr = w 
+
+*/
+    uint8_t stack[STACK_SIZE]; 
 
     bool analyze;
     bool cache_sim;

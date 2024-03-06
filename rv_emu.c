@@ -12,6 +12,151 @@ static void unsupported(char *s, uint32_t n) {
     exit(-1);
 }
 
+void emu_r_type(rv_state *rsp, uint32_t iw) {
+    uint32_t rd = (iw >> 7) & 0b11111;
+    // uint32_t rd = get_bit(iw, 7, 7);
+    // uint32_t rs1 = get_bit(iw, 15, 5);
+    uint32_t rs1 = get_bits(iw, 15 ,5);
+    uint32_t rs2 = get_bits(iw, 20 ,5);
+    uint32_t funct3 = get_bits(iw, 12 ,3);
+    // uint32_t funct3 = get_bit(iw, 12, 3);    
+    uint32_t funct7 = (iw >> 25) & 0b1111111;
+    // uint32_t imm1 = (iw >> 7) & 0b11111;
+
+    if (funct3 == 0b000 && funct7 == 0b0000000) { // add instruction 
+        rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
+    } else if (funct3 == 0b000 && funct7 == 0b0100000) { // sub instruction
+        rsp->regs[rd] = rsp->regs[rs1] - rsp->regs[rs2];
+    } else if (funct3 == 0b000 && funct7 == 0b0000001) { // mul instruction
+        rsp->regs[rd] = rsp->regs[rs1] * rsp->regs[rs2];      
+    } else if (funct3 == 0b100 && funct7 == 0b0000001) { // div instruction
+        rsp->regs[rd] = rsp->regs[rs1] / rsp->regs[rs2];      
+    } else if (funct3 == 0b110 && funct7 == 0b0000001) { // rem instruction
+        rsp->regs[rd] = rsp->regs[rs1] % rsp->regs[rs2];  
+    } else if (funct3 == 0b111 && funct7 == 0b0000000) {  //and instruction
+        rsp->regs[rd] = rsp->regs[rs1] & rsp->regs[rs2];   
+    } else if (funct3 == 0b001 && funct7 == 0b0000000) {  //sll
+        rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];     
+    } else if (funct3 == 0b101 && funct7 == 0b0000000) {  //srl
+        rsp->regs[rd] = rsp->regs[rs1] >> rsp->regs[rs2];            
+    } else {
+        unsupported("R-type funct3", funct3);
+    }
+    rsp->pc += 4; // Next instruction
+}
+
+void emu_i_type (rv_state *rsp, uint32_t iw) {
+    uint32_t rd = (iw >> 7) & 0b11111;
+    uint32_t rs1 = (iw >> 15) & 0b11111;
+    uint32_t imm = (iw >> 25) & 0b1111111;
+    uint32_t shamt = (iw >> 20) & 0b11111;
+    uint32_t funct3 = (iw >> 12) & 0b111;
+    uint32_t imm2 = get_bits(iw, 20, 12);
+    
+    int signed_im = sign_extend(imm2, 12);
+
+    if (funct3 == 0b101 && imm == 0b0000000) {
+        rsp->regs[rd] = rsp->regs[rs1] >> shamt;
+    } else if (funct3 == 0b000) { //addi
+        rsp->regs[rd] = rsp->regs[rs1] + signed_im;
+    } else {
+        unsupported("I-type funct3", funct3);
+    }
+    rsp->pc += 4;
+}
+
+void emu_b_type (rv_state *rsp, uint32_t iw) {
+    uint32_t rs1 = (iw >> 15) & 0b11111;
+    uint32_t rs2 = (iw >> 20) & 0b11111;
+    uint32_t funct3 = (iw >> 12) & 0b111;
+    uint32_t imm11 = (iw >> 7) & 0b1;
+    uint32_t imm41 = (iw >> 8) & 0b1111;
+    uint32_t imm105 = (iw >> 25) & 0b111111;
+    uint32_t imm12 = (iw >> 31) & 0b1;
+    uint32_t imm = (imm12 << 12) | (imm11 << 11) | (imm105 << 5) | (imm41 << 1);
+    int bit = sign_extend(imm, 12); // sign extend
+    if (((int)rsp->regs[rs1]) < ((int)rsp->regs[rs2]) && funct3 == 0b100) { // blt
+        rsp->pc += bit;  
+    } else if (((int)rsp->regs[rs1]) != ((int)rsp->regs[rs2]) && funct3 == 0b001){ //bne
+        rsp->pc += bit;      
+    } else if (((int)rsp->regs[rs1]) == ((int)rsp->regs[rs2]) && funct3 == 0b000){ //beq
+        rsp->pc += bit;     
+    } else if (((int)rsp->regs[rs1]) >= ((int)rsp->regs[rs2]) && funct3 == 0b101){ //bge
+        rsp->pc += bit;     
+    } else {
+        rsp->pc += 4;     
+        // unsupported("B-type funct3", imm11);
+    }
+}
+
+void emu_jalr(rv_state *rsp, uint32_t iw) {
+    uint32_t rs1 = (iw >> 15) & 0b11111;  // Will be ra (aka x1)
+    uint64_t val = rsp->regs[rs1];  // Value of regs[1]
+
+    rsp->pc = val;  // PC = return address
+}
+
+void emu_jal(rv_state *rsp, uint32_t iw) {
+    uint32_t imm12 = get_bits(iw, 12, 8);  
+    uint32_t imm11 = get_bits(iw, 20, 1);
+    uint32_t imm1 = get_bits(iw, 21, 10);
+    uint32_t imm20 = get_bits(iw, 31, 1);
+    uint32_t imm = (imm1 << 1) || (imm11 << 11) || (imm12 << 12) || (imm20 << 20);
+    // uint32_t rd = (iw >> 7) & 0b11111;
+    uint64_t val = rsp->pc + 4;
+    int64_t offset = sign_extend(imm, 21);
+
+    rsp->pc += offset;  // PC = return address
+    rsp->pc = val;
+}
+
+void emu_load(rv_state *rsp, uint32_t iw) {
+    uint32_t rd = (iw >> 7) & 0b11111;
+    uint32_t rs1 = (iw >> 15) & 0b11111;
+    uint32_t funct3 = (iw >> 12) & 0b111;
+    uint32_t imm2 = get_bits(iw, 20, 12);
+    
+    int64_t signed_im = sign_extend(imm2, 12);
+    int64_t *pt = (int64_t*)rsp->regs[rs1] + signed_im;
+    
+    if (funct3 == 0b000) {
+       rsp->regs[rd] = *(uint8_t*)pt;
+    } else if (funct3 == 0b010) {
+       rsp->regs[rd] = *(uint32_t*)pt;
+    } else if (funct3 == 0b001) {
+       rsp->regs[rd] = *(uint64_t*)pt;    
+    } else if (funct3 == 0b011) {
+       rsp->regs[rd] = *(uint64_t*)pt;
+    } else {
+        unsupported("Load-type funct3", funct3);
+    }
+  rsp->pc += 4;      
+}
+
+void emu_store(rv_state *rsp, uint32_t iw) {
+    uint32_t imm1 = (iw >> 7) & 0b11111;
+    uint32_t rs1 = (iw >> 15) & 0b11111;
+    // uint32_t rs2 = get_bits(iw, 20, 5);
+    uint32_t funct3 = (iw >> 12) & 0b111;
+    uint32_t imm2 = get_bits(iw, 25, 7);
+    uint32_t imm = (imm1 << 0) || (imm2 << 5);
+    int64_t signed_im = sign_extend(imm, 12);
+    int64_t *pt = (int64_t*)rsp->regs[rs1] + signed_im;
+    
+    if (funct3 == 0b000) {
+        *(uint8_t*)pt = imm;
+    } else if (funct3 == 0b010) {
+        *(uint32_t*)pt = imm;
+    } else if (funct3 == 0b001) {
+        *(uint64_t*)pt = imm;   
+    } else if (funct3 == 0b011) {
+        *(uint64_t*)pt = imm;
+    } else {
+        unsupported("Store-type funct3", funct3);
+    }
+  rsp->pc += 4;      
+}
+
 static void rv_one(rv_state *state) {
     uint32_t iw  = *((uint32_t*) state->pc);
     //iw = cache_lookup(&state->i_cache, (uint64_t) state->pc);
@@ -24,6 +169,27 @@ static void rv_one(rv_state *state) {
 #endif
 
     switch (opcode) {
+        case FMT_I_JALR:
+        emu_jalr(state,iw);
+        break;
+        case FMT_R: //R type instructions
+        emu_r_type(state, iw);
+        break;
+        case FMT_I_ARITH: //I type arithmetic instructions
+        emu_i_type(state,iw);
+        break;
+        case FMT_I_LOAD: //I type load instructions
+        emu_load(state,iw);
+        break;
+        case FMT_SB:
+        emu_b_type(state,iw);
+        break;  
+        case FMT_UJ:
+        emu_jal(state,iw);
+        break;  
+        case FMT_S:
+        emu_store(state,iw);
+        break;  
         default:
             unsupported("Unknown opcode: ", opcode);
     }
