@@ -57,8 +57,10 @@ void emu_i_type (rv_state *rsp, uint32_t iw) {
 
     if (funct3 == 0b101 && imm == 0b0000000) {
         rsp->regs[rd] = rsp->regs[rs1] >> shamt;
+    // } else if (funct3 == 0b000 && rsp->regs[rs1] == rsp->regs[RV_SP]) { //addi sp sp 
+    //     rsp->stack[rd] = rsp->stack[rs1] + signed_im;
     } else if (funct3 == 0b000) { //addi
-        rsp->regs[rd] = rsp->regs[rs1] + signed_im;
+        rsp->regs[rd] = rsp->regs[rs1] + signed_im;    
     } else {
         unsupported("I-type funct3", funct3);
     }
@@ -101,13 +103,15 @@ void emu_jal(rv_state *rsp, uint32_t iw) {
     uint32_t imm11 = get_bits(iw, 20, 1);
     uint32_t imm1 = get_bits(iw, 21, 10);
     uint32_t imm20 = get_bits(iw, 31, 1);
-    uint32_t imm = (imm1 << 1) || (imm11 << 11) || (imm12 << 12) || (imm20 << 20);
-    // uint32_t rd = (iw >> 7) & 0b11111;
-    uint64_t val = rsp->pc + 4;
+    uint32_t imm = (imm1 << 1) | (imm11 << 11) | (imm12 << 12) | (imm20 << 20);
+    uint32_t rd = (iw >> 7) & 0b11111;
+    // int64_t val = rsp->pc + 4;
     int64_t offset = sign_extend(imm, 21);
 
+    rsp->regs[rd] = rsp->pc + 4;
     rsp->pc += offset;  // PC = return address
-    rsp->pc = val;
+    // rsp->regs[RV_RA] += val;
+    // rsp->pc = val + offset;
 }
 
 void emu_load(rv_state *rsp, uint32_t iw) {
@@ -136,21 +140,21 @@ void emu_load(rv_state *rsp, uint32_t iw) {
 void emu_store(rv_state *rsp, uint32_t iw) {
     uint32_t imm1 = (iw >> 7) & 0b11111;
     uint32_t rs1 = (iw >> 15) & 0b11111;
-    // uint32_t rs2 = get_bits(iw, 20, 5);
+    uint32_t rs2 = get_bits(iw, 20, 5);
     uint32_t funct3 = (iw >> 12) & 0b111;
     uint32_t imm2 = get_bits(iw, 25, 7);
-    uint32_t imm = (imm1 << 0) || (imm2 << 5);
+    uint32_t imm = (imm1 << 0) | (imm2 << 5);
     int64_t signed_im = sign_extend(imm, 12);
-    int64_t *pt = (int64_t*)rsp->regs[rs1] + signed_im;
+    uint64_t *pt = (uint64_t*)rsp->regs[rs2] + signed_im;
     
     if (funct3 == 0b000) {
-        *(uint8_t*)pt = imm;
+        *(uint8_t*)pt = rsp->regs[rs1];
     } else if (funct3 == 0b010) {
-        *(uint32_t*)pt = imm;
+        *(uint32_t*)pt = rsp->regs[rs1];
     } else if (funct3 == 0b001) {
-        *(uint64_t*)pt = imm;   
+        *(uint64_t*)pt = rsp->regs[rs1];   
     } else if (funct3 == 0b011) {
-        *(uint64_t*)pt = imm;
+        // *(uint64_t*)pt = rsp->regs[rs1];
     } else {
         unsupported("Store-type funct3", funct3);
     }
