@@ -57,8 +57,8 @@ void emu_i_type (rv_state *rsp, uint32_t iw) {
 
     if (funct3 == 0b101 && imm == 0b0000000) {
         rsp->regs[rd] = rsp->regs[rs1] >> shamt;
-    // } else if (funct3 == 0b000 && rsp->regs[rs1] == rsp->regs[RV_SP]) { //addi sp sp 
-    //     rsp->stack[rd] = rsp->stack[rs1] + signed_im;
+    } else if (funct3 == 0b001) { //slli
+        rsp->regs[rd] = rsp->regs[rs1] << shamt;
     } else if (funct3 == 0b000) { //addi
         rsp->regs[rd] = rsp->regs[rs1] + signed_im;    
     } else {
@@ -108,7 +108,7 @@ void emu_jal(rv_state *rsp, uint32_t iw) {
     // int64_t val = rsp->pc + 4;
     int64_t offset = sign_extend(imm, 21);
 
-    rsp->regs[rd] = rsp->pc + 4;
+    // rsp->regs[rd] = rsp->pc + 4;
     rsp->pc += offset;  // PC = return address
     // rsp->regs[RV_RA] += val;
     // rsp->pc = val + offset;
