@@ -7,9 +7,16 @@
 
 #define DEBUG 0
 
+//global variables to count dynamic analysis
 int ir_count = 0;
 int total_count = 0;
+int load_count = 0;
+int store_count = 0;
 int jump_count = 0;
+int taken = 0;
+int not_taken = 0;
+
+
 static void unsupported(char *s, uint32_t n) {
     printf("unsupported %s 0x%x\n", s, n);
     exit(-1);
@@ -17,24 +24,13 @@ static void unsupported(char *s, uint32_t n) {
 
 void emu_r_type(rv_state *rsp, uint32_t iw) {
     uint32_t rd = (iw >> 7) & 0b11111;
-    // uint32_t rd = get_bit(iw, 7, 7);
-    // uint32_t rs1 = get_bit(iw, 15, 5);
     uint32_t rs1 = get_bits(iw, 15 ,5);
     uint32_t rs2 = get_bits(iw, 20 ,5);
     uint32_t funct3 = get_bits(iw, 12 ,3);
-    // uint32_t funct3 = get_bit(iw, 12, 3);    
     uint32_t funct7 = (iw >> 25) & 0b1111111;
-    // uint32_t imm1 = (iw >> 7) & 0b11111;
-    // rv_analysis *a = calloc(1, sizeof(rv_analysis));
-    // rv_analysis temp;
-    // rv_analysis *a = &temp;
-    // a->ir_count = 0;
-    // a->ir_count += 1;
     ir_count++;
     if (funct3 == 0b000 && funct7 == 0b0000000) { // add instruction 
         rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
-        // a->ir_count += 1;
-        // printf("%d", a->ir_count);
     } else if (funct3 == 0b000 && funct7 == 0b0100000) { // sub instruction
         rsp->regs[rd] = rsp->regs[rs1] - rsp->regs[rs2];
     } else if (funct3 == 0b000 && funct7 == 0b0000001) { // mul instruction
@@ -52,7 +48,6 @@ void emu_r_type(rv_state *rsp, uint32_t iw) {
     } else {
         unsupported("R-type funct3", funct3);
     }
-    // rv_analysis.a->ir_count += 1;
     rsp->pc += 4; // Next instruction
 }
 
@@ -89,14 +84,19 @@ void emu_b_type (rv_state *rsp, uint32_t iw) {
     uint32_t imm = (imm12 << 12) | (imm11 << 11) | (imm105 << 5) | (imm41 << 1);
     int bit = sign_extend(imm, 13); // sign extend
     if (((int)rsp->regs[rs1]) < ((int)rsp->regs[rs2]) && funct3 == 0b100) { // blt
+        taken++;
         rsp->pc += bit;  
     } else if (((int)rsp->regs[rs1]) != ((int)rsp->regs[rs2]) && funct3 == 0b001){ //bne
+        taken++;
         rsp->pc += bit;      
     } else if (((int)rsp->regs[rs1]) == ((int)rsp->regs[rs2]) && funct3 == 0b000){ //beq
+        taken++;
         rsp->pc += bit;     
     } else if (((int)rsp->regs[rs1]) >= ((int)rsp->regs[rs2]) && funct3 == 0b101){ //bge
+        taken++;
         rsp->pc += bit;     
     } else {
+        not_taken++;
         rsp->pc += 4;     
         // unsupported("B-type funct3", imm11);
     }
@@ -116,9 +116,8 @@ void emu_jal(rv_state *rsp, uint32_t iw) {
     uint32_t imm20 = get_bits(iw, 31, 1);
     uint32_t imm = (imm1 << 1) | (imm11 << 11) | (imm12 << 12) | (imm20 << 20);
     uint32_t rd = (iw >> 7) & 0b11111;
-    // int64_t val = rsp->pc + 4;
     int64_t offset = sign_extend(imm, 21);
-
+    jump_count++;
     if(rd != 0) { //has to not be x0, which makes this into a jump instead of a jal
     rsp->regs[rd] = rsp->pc + 4;
     }
@@ -133,7 +132,7 @@ void emu_load(rv_state *rsp, uint32_t iw) {
     
     int64_t signed_im = sign_extend(imm2, 12);
     int64_t *pt = (int64_t*)rsp->regs[rs1] + signed_im;
-    
+    load_count++;
     if (funct3 == 0b000) {
        rsp->regs[rd] = *(uint8_t*)pt;
     } else if (funct3 == 0b010) {
@@ -157,7 +156,7 @@ void emu_store(rv_state *rsp, uint32_t iw) {
     uint32_t imm = (imm1 << 0) | (imm2 << 5);
     int64_t signed_im = sign_extend(imm, 12);
     uint64_t *pt = (uint64_t*)rsp->regs[rs1] + signed_im;
-    
+    store_count++;
     if (funct3 == 0b000) {
         *(uint8_t*)pt = rsp->regs[rs2];
     } else if (funct3 == 0b010) {
@@ -244,11 +243,15 @@ static void print_pct(char *fmt, int numer, int denom) {
 }
 
 void rv_print(rv_analysis *a) {
-    int b_total = a->b_taken + a->b_not_taken;
-
     a->ir_count = ir_count;
     a->i_count = total_count;
+    a->ld_count = load_count;
+    a->st_count = store_count;
     a->j_count = jump_count;
+    a->b_taken = taken;
+    a->b_not_taken = not_taken;
+
+    int b_total = a->b_taken + a->b_not_taken;
 
     printf("=== Analysis\n");
     print_pct("Instructions Executed  = %d\n", a->i_count, a->i_count);
