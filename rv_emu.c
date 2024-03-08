@@ -108,7 +108,9 @@ void emu_jal(rv_state *rsp, uint32_t iw) {
     // int64_t val = rsp->pc + 4;
     int64_t offset = sign_extend(imm, 21);
 
-    // rsp->regs[rd] = rsp->pc + 4;
+    if(rd != 0) { //has to not be x0, which makes this into a jump instead of a jal
+    rsp->regs[rd] = rsp->pc + 4;
+    }
     rsp->pc += offset;  // PC = return address
     // rsp->regs[RV_RA] += val;
     // rsp->pc = val + offset;
