@@ -7,6 +7,9 @@
 
 #define DEBUG 0
 
+int ir_count = 0;
+int total_count = 0;
+int jump_count = 0;
 static void unsupported(char *s, uint32_t n) {
     printf("unsupported %s 0x%x\n", s, n);
     exit(-1);
@@ -22,9 +25,16 @@ void emu_r_type(rv_state *rsp, uint32_t iw) {
     // uint32_t funct3 = get_bit(iw, 12, 3);    
     uint32_t funct7 = (iw >> 25) & 0b1111111;
     // uint32_t imm1 = (iw >> 7) & 0b11111;
-
+    // rv_analysis *a = calloc(1, sizeof(rv_analysis));
+    // rv_analysis temp;
+    // rv_analysis *a = &temp;
+    // a->ir_count = 0;
+    // a->ir_count += 1;
+    ir_count++;
     if (funct3 == 0b000 && funct7 == 0b0000000) { // add instruction 
         rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
+        // a->ir_count += 1;
+        // printf("%d", a->ir_count);
     } else if (funct3 == 0b000 && funct7 == 0b0100000) { // sub instruction
         rsp->regs[rd] = rsp->regs[rs1] - rsp->regs[rs2];
     } else if (funct3 == 0b000 && funct7 == 0b0000001) { // mul instruction
@@ -42,6 +52,7 @@ void emu_r_type(rv_state *rsp, uint32_t iw) {
     } else {
         unsupported("R-type funct3", funct3);
     }
+    // rv_analysis.a->ir_count += 1;
     rsp->pc += 4; // Next instruction
 }
 
@@ -54,7 +65,7 @@ void emu_i_type (rv_state *rsp, uint32_t iw) {
     uint32_t imm2 = get_bits(iw, 20, 12);
     
     int signed_im = sign_extend(imm2, 12);
-
+    ir_count++;
     if (funct3 == 0b101 && imm == 0b0000000) {
         rsp->regs[rd] = rsp->regs[rs1] >> shamt;
     } else if (funct3 == 0b001) { //slli
@@ -94,7 +105,7 @@ void emu_b_type (rv_state *rsp, uint32_t iw) {
 void emu_jalr(rv_state *rsp, uint32_t iw) {
     uint32_t rs1 = (iw >> 15) & 0b11111;  // Will be ra (aka x1)
     uint64_t val = rsp->regs[rs1];  // Value of regs[1]
-
+    jump_count++;
     rsp->pc = val;  // PC = return address
 }
 
@@ -112,8 +123,6 @@ void emu_jal(rv_state *rsp, uint32_t iw) {
     rsp->regs[rd] = rsp->pc + 4;
     }
     rsp->pc += offset;  // PC = return address
-    // rsp->regs[RV_RA] += val;
-    // rsp->pc = val + offset;
 }
 
 void emu_load(rv_state *rsp, uint32_t iw) {
@@ -169,11 +178,13 @@ static void rv_one(rv_state *state) {
 
     uint32_t opcode = get_bits(iw, 0, 7);
 
-
+    // int ir = a->ir_count;
+    // uint32_t ir  = *((uint32_t*) a->ir_count);
+    
 #if DEBUG
     printf("iw: %x\n", iw);
 #endif
-
+    total_count++;
     switch (opcode) {
         case FMT_I_JALR:
         emu_jalr(state,iw);
@@ -234,6 +245,10 @@ static void print_pct(char *fmt, int numer, int denom) {
 
 void rv_print(rv_analysis *a) {
     int b_total = a->b_taken + a->b_not_taken;
+
+    a->ir_count = ir_count;
+    a->i_count = total_count;
+    a->j_count = jump_count;
 
     printf("=== Analysis\n");
     print_pct("Instructions Executed  = %d\n", a->i_count, a->i_count);
