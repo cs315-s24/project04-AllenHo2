@@ -1,84 +1,56 @@
 .global str_to_int_s
-
-
-
-# a0 is str
-# a1 is base
-# t0 is retval 
-# t1 is place_val
-# t2 is digit 
-# t3 is strlen
-count:
-    mul t1, t1, a1
-    addi t3, t3, 1
-    addi a0, a0, 1
-
-    j loop
-
-str_to_int_s:
-    mv t0, zero
-    li t1, 1
-    li t3, 0
-    addi sp, sp, -40
-    sd ra, (sp)
-    sd a0, 8(sp)
     
-loop:
-    lb t2, (a0)
-    bne t2, zero, count
-    ld a0, 8(sp)
-
-loop_1:
-    lb t2, (a0)
-    beq t2, zero, done
-    li t4, 16
-    beq a1, t4, base2
-    li t4, 10
-    beq a1, t4, base2
-    li t4, 2
-    beq a1, t4, base2
-
-    j done
-
-base2:
-    li t4, '9'
-    bgt t2, t4, base10
-    li t4, '0'
-    sub t2, t2, t4
-
-    j convert
-base10:
-    li t4, 'F'
-    bgt t2, t4, base16
-    li t4, 'A'
-    sub t2, t2, t4
-    addi t2, t2, 10
-
-    j convert
-base16:
-    li t4, 'f'
-    bgt t2, t4, skip
-    li t4, 'a'
-    sub t2, t2, t4
-    addi t2, t2, 10
-    
-convert:
-    div t1, t1, a1
-    mul t2, t2, t1
-    add t0, t0,t2
-    #sb t2, (a0)
-    addi a0, a0, 1
-    j loop_1
-
-skip:
-    div t1, t1, a1
-    div t1, t1, a1
-    addi a0, a0, 1
-    j loop_1
-
-done:
-    mv a0, t0
-    ld ra, (sp)
-    addi sp, sp, 40
+# a0 = str at least sig place, a1 = base, a2 = len
+# returns: integer representation of the string as a signed word
+calculate:
+    mv t0, zero                 # t0 is the int ret val
+    li t1, 1                    # t1 is place value
+calc_loop:
+    beq a2, zero, calc_done     # calculated at all places in str
+    lb t2, (a0)                 # t2 = *str
+    li t3, 'a'
+    blt t2, t3, calc_upper_or_numeral
+    addi t2, t2, -87            # -'a' + 0xa
+    j calc_math
+calc_upper_or_numeral:
+    li t3, 'A'
+    blt t2, t3, calc_numeral
+    addi t2, t2, -55            # -'A' + 0xa
+    j calc_math
+calc_numeral:
+    addi t2, t2, -48            # -'0'
+calc_math:
+    mul t3, t2, t1              # t3 = digit * place value
+    add t0, t0, t3              # ret val += t3
+    mul t1, t1, a1              # place value *= base
+    addi a2, a2, -1             # len--
+    addi a0, a0, -1             # str--
+    j calc_loop
+calc_done:
+    mv a0, t0                   # set up ret val
     ret
 
+
+# a0: string to convert, expressed as a decimal, hex (0x) or binary (0b) string
+# a1: input base
+# returns: integer representation of the string as a signed word
+str_to_int_s:
+    addi sp, sp, -8             # prologue
+    sd ra, (sp)
+
+# find the length, leaving a0 pointing to the char in the least significant place
+si_get_len:
+    mv a2, zero                 # a2 is str len and func arg
+si_len_loop:
+    lb t1, (a0)                 # t1 = *str
+    beq t1, zero, si_len_done   # found '\0'?
+    addi a2, a2, 1              # len++
+    addi a0, a0, 1              # str++
+    j si_len_loop
+si_len_done:
+    addi a0, a0, -1             # back up a char
+    call calculate              # a0 = str at least sig place, a1 = base, a2 = len
+
+    ld ra, (sp)                 # epilogue
+    addi sp, sp, 8
+    ret

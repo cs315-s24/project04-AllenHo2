@@ -95,7 +95,9 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
         // hit
         csp->hits += 1;
         // data = slot->block[b_index];
-        data = *(uint64_t*) (b_base << 2);
+        b_base = b_base << 2;
+        // data = *(uint64_t*) b_base;
+        data = *((uint32_t *) addr);
         // data = *(uint32_t*) addr;
 
         verbose("  cache tag hit for index %d tag %X addr %lX\n",
@@ -121,7 +123,7 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
             // printf("DONKEEEYYYY %x", *(int*) b_base);
         // Need to change for block size > 1
         
-        data = *(uint32_t*) addr;
+        data = *((uint32_t *) addr);
         // data = *(uint64_t*) (b_base << 2);
         // data = slot->block[b_index];
     }
