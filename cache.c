@@ -80,8 +80,8 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     struct cache_slot_st *slot;
     uint32_t data = 0;
 
-    uint64_t addr_word = addr / 4;
-    b_index = addr_word % 4;
+    uint64_t addr_word = addr >> 2;
+    b_index = addr_word & 0b11;
 
     b_base = addr_word - b_index;
     // b_index = 0; // Need to change for block size > 1
@@ -94,11 +94,13 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     if (slot->valid && (slot->tag == tag)) {
         // hit
         csp->hits += 1;
-        data = slot->block[b_index];
+        // data = slot->block[b_index];
+        data = *(uint64_t*) (b_base << 2);
+        // data = *(uint32_t*) addr;
 
         verbose("  cache tag hit for index %d tag %X addr %lX\n",
                 index, tag, addr);
-
+            // printf("DONKEY %d\n", (int) b_index);
     } else {
         // miss
         csp->misses += 1;
@@ -114,12 +116,14 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
         }
         slot->valid = 1;
         slot->tag = tag;
-            printf("SHREKKKKKK %d\n", (int) b_index);
-            printf("FIONAAAAAA %d\n", (int) b_base);
+            // printf("SHREKKKKKK %d\n", (int) b_index);
+            // printf("FIONAAAAAA %d\n", (int) b_base);
             // printf("DONKEEEYYYY %x", *(int*) b_base);
         // Need to change for block size > 1
         
-        data = *(uint64_t*) addr;
+        data = *(uint32_t*) addr;
+        // data = *(uint64_t*) (b_base << 2);
+        // data = slot->block[b_index];
     }
     
     return data;
