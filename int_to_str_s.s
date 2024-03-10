@@ -95,6 +95,3 @@ done:
     addi sp, sp, 40
 
     ret
-
-
-

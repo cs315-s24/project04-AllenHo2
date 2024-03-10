@@ -80,7 +80,11 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     struct cache_slot_st *slot;
     uint32_t data = 0;
 
-    b_index = 0; // Need to change for block size > 1
+    uint64_t addr_word = addr / 4;
+    b_index = addr_word % 4;
+
+    b_base = addr_word - b_index;
+    // b_index = 0; // Need to change for block size > 1
     index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
     tag = addr >> (csp->index_bits + csp->block_bits + 2);
 
@@ -110,9 +114,12 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
         }
         slot->valid = 1;
         slot->tag = tag;
-
+            printf("SHREKKKKKK %d\n", (int) b_index);
+            printf("FIONAAAAAA %d\n", (int) b_base);
+            // printf("DONKEEEYYYY %x", *(int*) b_base);
         // Need to change for block size > 1
-        data = slot->block[b_index];
+        
+        data = *(uint64_t*) addr;
     }
     
     return data;
@@ -135,7 +142,9 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
 
     uint64_t tag = addr >> (csp->index_bits + csp->block_bits + 2);
 
-    uint64_t b_index = 1; // Need to change for block size > 1
+    uint64_t addr_word = addr >> 2;
+    uint64_t b_index = addr_word & 0b11;
+    // uint64_t b_index = 1; // Need to change for block size > 1
 
     uint64_t b_base;
     int set_index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
