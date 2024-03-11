@@ -82,7 +82,8 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
 
     uint64_t addr_word = addr >> 2;
     // uint64_t addr_word = addr / 4;
-    b_index = addr % csp->block_size;
+    // uint64_t mask = ((uint32_t)(((int32_t)(0b1 << 31)) >> csp->block_size)) >> (31 - csp->block_size);
+    b_index = addr_word % csp->block_size;
     // b_index = (addr >> (csp->block_bits)) & csp->index_mask;
     // b_index = addr_word % CACHE_MAX_BLOCK_SIZE;
     b_base = addr_word - b_index;
@@ -111,7 +112,6 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
 
         verbose("  cache tag hit for index %d tag %X addr %lX\n",
                 index, tag, addr);
-            // printf("DONKEY %d\n", (int) b_index);
     } else {
         // miss
         csp->misses += 1;
