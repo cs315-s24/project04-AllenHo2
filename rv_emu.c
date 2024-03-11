@@ -177,8 +177,6 @@ static void rv_one(rv_state *state) {
 
     uint32_t opcode = get_bits(iw, 0, 7);
 
-    // int ir = a->ir_count;
-    // uint32_t ir  = *((uint32_t*) a->ir_count);
     
 #if DEBUG
     printf("iw: %x\n", iw);

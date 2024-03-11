@@ -81,8 +81,10 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     uint32_t data = 0;
 
     uint64_t addr_word = addr >> 2;
+    // uint64_t addr_word = addr / 4;
     b_index = addr_word & 0b11;
-
+    // b_index = (addr >> (csp->block_bits)) & csp->index_mask;
+    // b_index = addr_word % CACHE_MAX_BLOCK_SIZE;
     b_base = addr_word - b_index;
     // b_index = 0; // Need to change for block size > 1
     index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
@@ -94,11 +96,18 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     if (slot->valid && (slot->tag == tag)) {
         // hit
         csp->hits += 1;
-        // data = slot->block[b_index];
-        b_base = b_base << 2;
+        slot->block[b_index] = *((uint32_t *) addr); 
+        // printf("SHREKKKKKK %d\n", (int) csp->index_mask);
+        // printf("base %d\n",  (int) b_base << 2);
+        // printf("addr %d\n",  (int) addr);
+        // printf("slot %p\n",  &slot->block[b_index]);
+        data = slot->block[b_index];
+        // b_base = b_base << 2;
         // data = *(uint64_t*) b_base;
-        data = *((uint32_t *) addr);
-        // data = *(uint32_t*) addr;
+        // data = (uint32_t)slot->block[b_index];
+        // data = *((uint32_t *) addr);
+        // data = ((uint32_t ) slot->block[b_index]);
+        // data = *((uint32_t *) addr_word);
 
         verbose("  cache tag hit for index %d tag %X addr %lX\n",
                 index, tag, addr);
@@ -121,11 +130,12 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
             // printf("SHREKKKKKK %d\n", (int) b_index);
             // printf("FIONAAAAAA %d\n", (int) b_base);
             // printf("DONKEEEYYYY %x", *(int*) b_base);
+            printf("DRAGOOOONNN %d\n", *((uint32_t *) addr));
         // Need to change for block size > 1
-        
-        data = *((uint32_t *) addr);
+        // data = *((uint32_t *) addr);
         // data = *(uint64_t*) (b_base << 2);
-        // data = slot->block[b_index];
+        data = *((uint32_t *) addr);
+        slot->block[b_index] = data; 
     }
     
     return data;
