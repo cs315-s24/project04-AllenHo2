@@ -113,7 +113,7 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
         slot->valid = 1;
         slot->tag = tag;
         
-        for(int i = 0 ; i < 4; i++) { //slide the whole block into the slot
+        for(int i = 0 ; i < csp->block_size; i++) { //slide the whole block into the slot
             slot->block[i] = *(((uint32_t*)(b_base << 2)) + i);            
         }
 
@@ -141,10 +141,10 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     uint64_t tag = addr >> (csp->index_bits + csp->block_bits + 2);
 
     uint64_t addr_word = addr >> 2;
-    uint64_t b_index = addr_word & 0b11;
+    uint64_t b_index = addr_word % csp->block_size;
     // uint64_t b_index = 1; // Need to change for block size > 1
 
-    uint64_t b_base;
+    uint64_t b_base = addr_word - b_index;
     int set_index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
     int set_base = set_index * csp->ways;
 
@@ -194,7 +194,10 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
 
     if (!hit) {
         // Need to change for block size > 1        
-        slot->block[b_index] = *((uint32_t *) addr);
+        // slot->block[b_index] = *((uint32_t *) addr);
+        for(int i = 0 ; i < csp->block_size; i++) { //slide the whole block into the slot
+            slot->block[i] = *(((uint32_t*)(b_base << 2)) + i);            
+        }
         slot->tag = tag;
         slot->valid = true;
     }
