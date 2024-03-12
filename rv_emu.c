@@ -151,19 +151,20 @@ void emu_store(rv_state *rsp, uint32_t iw) {
     uint32_t imm1 = (iw >> 7) & 0b11111;
     uint32_t rs1 = (iw >> 15) & 0b11111;
     uint32_t rs2 = get_bits(iw, 20, 5);
-    uint32_t funct3 = (iw >> 12) & 0b111;
+    // uint32_t funct3 = (iw >> 12) & 0b111;
+    uint32_t funct3 = get_bits(iw, 12 ,3);
     uint32_t imm2 = get_bits(iw, 25, 7);
-    uint32_t imm = (imm1 << 0) | (imm2 << 5);
+    uint32_t imm = (imm1) | (imm2 << 5);
     int64_t signed_im = sign_extend(imm, 12);
     uint64_t *pt = (uint64_t*)rsp->regs[rs1] + signed_im;
     store_count++;
-    if (funct3 == 0b000) {
+    if (funct3 == 0b000) { //sb
         *(uint8_t*)pt = rsp->regs[rs2];
-    } else if (funct3 == 0b010) {
+    } else if (funct3 == 0b010) { //sw
         *(uint32_t*)pt = rsp->regs[rs2];
-    } else if (funct3 == 0b001) {
+    } else if (funct3 == 0b001) { //sh
         *(uint64_t*)pt = rsp->regs[rs2];   
-    } else if (funct3 == 0b011) {
+    } else if (funct3 == 0b011) { //sd
         *(uint64_t*)pt = rsp->regs[rs2];
     } else {
         unsupported("Store-type funct3", funct3);
