@@ -140,10 +140,9 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
 
     uint64_t tag = addr >> (csp->index_bits + csp->block_bits + 2);
 
+    // uint64_t b_index = 1; // Need to change for block size > 1
     uint64_t addr_word = addr >> 2;
     uint64_t b_index = addr_word % csp->block_size;
-    // uint64_t b_index = 1; // Need to change for block size > 1
-
     uint64_t b_base = addr_word - b_index;
     int set_index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
     int set_base = set_index * csp->ways;
@@ -151,10 +150,13 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     struct cache_slot_st *slot = NULL;
     struct cache_slot_st *slot_found = NULL;
     struct cache_slot_st *slot_invalid = NULL;
-
+    // printf("banana\n");
+    struct cache_slot_st *slot_least = &(csp->slots[set_base]);
+    // printf("banana\n");
     // Check each slot in the set
     for (int i = 0; i < 4; i += 1) {
         slot = &csp->slots[set_base + i];
+        // slot_least = &csp->slots[set_base];
         if (slot->valid) {
             if (tag == slot->tag) {
                 verbose("  cache tag hit for set %d way %d tag %X addr %lX\n",
@@ -162,11 +164,21 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
                 hit = true;
                 slot_found = slot;
                 csp->hits++;
+               // csp->refs++;
+                // slot->timestamp = csp->refs;
+                
+                // if(slot->timestamp < (uint64_t)csp->refs) {
+                //     slot_least = slot;
+                // }
+                
                 break;
             }
         } else {
             // Save invalid slot in case of miss
             slot_invalid = slot;
+            // if(slot_invalid->timestamp < slot_least->timestamp) {
+            //     slot_least = slot_invalid;
+            // }
         }
     }
 
@@ -178,10 +190,32 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             csp->misses += 1;
             // Miss due to tag collision is a "hot" miss
             csp->misses_cold += 1;
-        } else {
+        } else { //if slot is valid 
+            /*
+                Find least used recent slot 
+            */
+        
             // Always pick first slot in set - CHANGE TO LRU
-            slot = &(csp->slots[set_base]);
-
+            // for (int i = 0; i < csp->block_size; i++) {
+            //     for(int j = 0; j < csp->block_size - i; j++) {
+            //         slot_temp = &(csp->slots[set_base + i]);
+            //         slot = &(csp->slots[set_base]);
+            //         if(slot->timestamp > slot_temp->timestamp) {
+            //             slot = slot_temp;
+            //         }
+            //     }
+            // }
+            
+            // for (int i = 0; i < csp->block_size; i++) {
+            //     if(&(csp->slots[set_base + (i*4)]) <  &(csp->slots[set_base])){
+            //         slot = &(csp->slots[set_base + (i)]);       
+            //     } else {
+            //         slot = &(csp->slots[set_base]);    
+            //     }
+            // }
+            // slot = slot_least;
+                    slot = &(csp->slots[set_base]); 
+                    // slot = slot_least;
             verbose("  cache tag (%X) miss for set %d tag %X addr %X (evict address %X)\n",
                     slot->tag, set_index, tag, addr, 
                     ((slot->tag << (csp->index_bits + 2)) | (set_index << 2)));
@@ -194,7 +228,6 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
 
     if (!hit) {
         // Need to change for block size > 1        
-        // slot->block[b_index] = *((uint32_t *) addr);
         for(int i = 0 ; i < csp->block_size; i++) { //slide the whole block into the slot
             slot->block[i] = *(((uint32_t*)(b_base << 2)) + i);            
         }
