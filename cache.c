@@ -151,12 +151,14 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     struct cache_slot_st *slot_found = NULL;
     struct cache_slot_st *slot_invalid = NULL;
     // printf("banana\n");
-    struct cache_slot_st *slot_least = &(csp->slots[set_base]);
+    struct cache_slot_st *slot_least = NULL;
+    slot_least = &csp->slots[set_base];
+    // slot_least->timestamp = 0;
     // printf("banana\n");
     // Check each slot in the set
     for (int i = 0; i < 4; i += 1) {
         slot = &csp->slots[set_base + i];
-        // slot_least = &csp->slots[set_base];
+        // slot_least->timestamp = 0;
         if (slot->valid) {
             if (tag == slot->tag) {
                 verbose("  cache tag hit for set %d way %d tag %X addr %lX\n",
@@ -164,6 +166,8 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
                 hit = true;
                 slot_found = slot;
                 csp->hits++;
+                // slot->timestamp = 0;
+                // printf("%d\n", (int)slot->timestamp);
                // csp->refs++;
                 // slot->timestamp = csp->refs;
                 
@@ -176,9 +180,12 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
         } else {
             // Save invalid slot in case of miss
             slot_invalid = slot;
-            // if(slot_invalid->timestamp < slot_least->timestamp) {
-            //     slot_least = slot_invalid;
-            // }
+            // slot->timestamp=csp->refs;
+        }
+        
+        if(slot->timestamp < slot_least->timestamp) {
+            slot_least = slot;
+            // slot_least->timestamp = slot->timestamp;
         }
     }
 
@@ -213,9 +220,8 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             //         slot = &(csp->slots[set_base]);    
             //     }
             // }
-            // slot = slot_least;
-                    slot = &(csp->slots[set_base]); 
-                    // slot = slot_least;
+            slot = slot_least;
+                    // slot = &(csp->slots[set_base]); 
             verbose("  cache tag (%X) miss for set %d tag %X addr %X (evict address %X)\n",
                     slot->tag, set_index, tag, addr, 
                     ((slot->tag << (csp->index_bits + 2)) | (set_index << 2)));

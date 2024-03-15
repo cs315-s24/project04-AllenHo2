@@ -237,7 +237,7 @@ int parse_params(int argc, char **argv, rv_state *state) {
             state->i_cache.block_size = atoi(argv[i + 2]);
             state->i_cache.ways = atoi(argv[i + 3]);
             i += 3;
-        } else if (!strcmp(argv[i], "-v")) {
+        } else if (strcmp(argv[i], "-v")) {
             state->verbose = true;
             g_verbose = true;
         }
