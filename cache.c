@@ -139,8 +139,6 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     csp->refs += 1;
 
     uint64_t tag = addr >> (csp->index_bits + csp->block_bits + 2);
-
-    // uint64_t b_index = 1; // Need to change for block size > 1
     uint64_t addr_word = addr >> 2;
     uint64_t b_index = addr_word % csp->block_size;
     uint64_t b_base = addr_word - b_index;
@@ -150,17 +148,22 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     struct cache_slot_st *slot = NULL;
     struct cache_slot_st *slot_found = NULL;
     struct cache_slot_st *slot_invalid = NULL;
-    // printf("banana\n");
-    struct cache_slot_st *slot_least = NULL;
-    slot_least = &csp->slots[set_base];
+    struct cache_slot_st *slot_least = &csp->slots[set_base];
     // slot_least->timestamp = 0;
-    // printf("banana\n");
+    int slot_counter = 0;
+
+
+    for (int i = 0; i < 4; i += 1) {
+        slot = &csp->slots[set_base + i];
+          printf("way: %d slot time: %d\n", i, (int)slot->timestamp);
+    }
+    
     // Check each slot in the set
     for (int i = 0; i < 4; i += 1) {
         slot = &csp->slots[set_base + i];
-        // slot_least->timestamp = 0;
         if (slot->valid) {
             if (tag == slot->tag) {
+                printf("way: %d hit time: %d\n", i, (int)slot->timestamp);
                 verbose("  cache tag hit for set %d way %d tag %X addr %lX\n",
                         set_index, i, tag, addr);
                 hit = true;
@@ -174,7 +177,6 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
                 // if(slot->timestamp < (uint64_t)csp->refs) {
                 //     slot_least = slot;
                 // }
-                
                 break;
             }
         } else {
@@ -182,9 +184,15 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             slot_invalid = slot;
             // slot->timestamp=csp->refs;
         }
+        // slot_counter++;
+        // slot->timestamp++;
+        // printf("way: %d slot time: %d\n", i, (int)slot->timestamp);
+        // printf("counter %d\n", slot_counter);
         
-        if(slot->timestamp < slot_least->timestamp) {
+        if(slot->timestamp  < slot_least->timestamp && !slot_invalid) {
             slot_least = slot;
+            printf("slot_least: %d\n", (int)slot_least->timestamp);
+            // printf("slot: %d\n", (int)slot->timestamp);
             // slot_least->timestamp = slot->timestamp;
         }
     }
@@ -203,15 +211,6 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             */
         
             // Always pick first slot in set - CHANGE TO LRU
-            // for (int i = 0; i < csp->block_size; i++) {
-            //     for(int j = 0; j < csp->block_size - i; j++) {
-            //         slot_temp = &(csp->slots[set_base + i]);
-            //         slot = &(csp->slots[set_base]);
-            //         if(slot->timestamp > slot_temp->timestamp) {
-            //             slot = slot_temp;
-            //         }
-            //     }
-            // }
             
             // for (int i = 0; i < csp->block_size; i++) {
             //     if(&(csp->slots[set_base + (i*4)]) <  &(csp->slots[set_base])){
@@ -244,6 +243,9 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     value = slot->block[b_index];        
 
     slot->timestamp = csp->refs;
+    // printf("timer: %d\n", csp->refs);
+
+    // printf("slots: %d\n", (int)slot->timestamp);
     return value;
 }
 

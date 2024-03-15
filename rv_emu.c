@@ -5,7 +5,7 @@
 #include "rv_emu.h"
 #include "bits.h"
 
-#define DEBUG 0
+#define DEBUG 1
 
 //global variables to count dynamic analysis
 int ir_count = 0;
