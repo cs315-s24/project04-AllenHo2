@@ -1,100 +1,53 @@
 .global int_to_str_s
 
-
-# a0 is  uint32_t value
-# a1 is *result_str
-# a2 is base
-# t0 is len 
-# t1 is div
-# t2 is rem 
-# Do in line reverse for string using a temp
-
-#add prefix to my code in the original value 
-#can maybe try to add it in the temp(t3) later 
-base2:
-    addi a1, a1, -1
-    li t1, 'b'
-    sb t1, (a1)
-    addi a1, a1, -1
-    li t1, '0'
-    sb t1, (a1)
-    
-    j done
-
-base16:
-    addi a1, a1, -1
-    li t1, 'x'
-    sb t1, (a1)
-    addi a1, a1, -1
-    li t1, '0'
-    sb t1, (a1)
-    
-    j done
-
-#load in starting values
+# a0: 32 bit signed integer
+# a1: output string, assumed to be 32 chars
+# a2: output base
 int_to_str_s:
-    addi sp, sp, -40
-    sd ra, (sp)
-    mv t0, zero     #set len to 0
-    mv t2, a0
-    mv t3, a1                   #move a0 into t3 for temp manipulation
-    li t4, 10
-    beq a2 , t4, strlen
+    li t4, 2
+    bne a2, t4, prefix_not_bin
+    li t4, '0'              # base 2, prefix "0b"
+    sb t4, (a1)
+    li t4, 'b'
+    sb t4, 1(a1)
     addi a1, a1, 2
-    beq a0, zero, fill_zero     #if base case is 0, return 0
+prefix_not_bin:
+    li t4, 16
+    bne a2, t4, prefix_none # base 10, no prefix
+    li t4, '0'              # must be base 16, prefix "0x"
+    sb t4, (a1)
+    li t4, 'x'
+    sb t4, 1(a1)
+    addi a1, a1, 2
+prefix_none:
+    mv a3, a1               # save for later reversing
 
-strlen:
-    div t2, t2, a2
-    addi t0, t0, 1
+mod_loop:
+    beq a0, zero, reverse
+    rem t0, a0, a2          # t0 = num % base
+    div a0, a0, a2          # a0 = num / base
+    li t1, 9
+    bgt t0, t1, mod_letter
+    addi t0, t0, '0'        # t0 is <= 9, turn it into a numeric char
+    j mod_store
+mod_letter:
+    addi t0, t0, 55         # t0 is > 9, turn it into a letter ('A' - 0xa = 55)
+mod_store:
+    sb t0, (a1)
+    addi a1, a1, 1          # string++
+    j mod_loop
 
-    bne t2, zero, strlen
-    
-    add a1, a1, t0
-    sb zero, (a1)
-
-loop:
-    beq t0, zero, prefix        # if len is 0, break out of loop
-    rem t2, a0, a2              # rem
-    li t4, 10                   
-    blt t2, t4, less_nine       # if rem is less than 10 (<= 9) do convert
-    li t4, 15
-    bgt t2, t4, increment       # if rem is more than 15, increment
-    li t4, 'a'                  
-    addi t4, t4, -10
-    add t4, t4, t2
-    addi a1, a1, -1            #increment t3 forward 
-    sb t4, (a1)                 #store that into t3
-    
-increment:
-    addi t0, t0, -1              # increment len
-    div a0, a0, a2
-    
-    j loop
-
-less_nine:
-    li t4, '0'                      
-    add t4, t4, t2             # temp[len] = '0' + rem
+reverse:
+    addi a1, a1, -1         # back up a1 from the '\0' to the last char
+rev_loop:
+    blt a1, a3, rev_done    # stop when pointers cross
+    lb t1, (a1)             # reverse output string
+    lb t3, (a3)
+    sb t1, (a3)
+    sb t3, (a1)
+    addi a3, a3, 1          # walk pointers toward each other
     addi a1, a1, -1
-    sb t4, (a1)
-
-    j increment
-
-fill_zero:
-    li t4, '0'  
-    sb t4, (a1)
-    
-prefix:
-    li t1, 2        #t1 is currently temp 
-    beq a2, t1, base2
-    li t1, 16
-    beq a2, t1, base16
-
-
-done:
-    ld ra, (sp)
-    addi sp, sp, 40
-
+    j rev_loop
+rev_done:
+    sb zero, 1(a3)          # null terminate the output str
     ret
-
-
-

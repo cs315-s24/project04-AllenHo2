@@ -126,12 +126,12 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
 struct cache_slot_st* find_lru_slot_set (struct cache_st *csp, int set_base) {
     struct cache_slot_st *slot = NULL;
     struct cache_slot_st *slot_less = &csp->slots[set_base];
-    // slot_less->timestamp = csp->refs;
+    slot_less->timestamp = csp->refs;
     for(int i = 0; i < csp->ways; i++) {
         slot = &csp->slots[set_base + i];
         if(slot->timestamp < slot_less->timestamp) {
             slot_less = slot;
-            printf("slot_least: %d\n", (int)slot_less->timestamp);
+            // printf("slot_least: %d\n", (int)slot_less->timestamp);
             // slot_less->timestamp = slot->timestamp;
         }
     }
@@ -185,17 +185,18 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     // int slot_counter = 0;
 
 
-    for (int i = 0; i < 4; i += 1) {
-        slot = &csp->slots[set_base + i];
-          printf("way: %d slot time: %d\n", i, (int)slot->timestamp);
-    }
+    // for (int i = 0; i < 4; i += 1) {
+    //     slot = &csp->slots[set_base + i];
+    //       printf("way: %d slot time: %d\n", i, (int)slot->timestamp);
+    //       printf("address %x\n",  (unsigned int)((slot->tag << (csp->index_bits + 2)) | (set_index << 2)));
+    // }
     
     // Check each slot in the set
     for (int i = 0; i < 4; i += 1) {
         slot = &csp->slots[set_base + i];
         if (slot->valid) {
             if (tag == slot->tag) {
-                printf("way: %d hit time: %d\n", i, (int)slot->timestamp);
+                // printf("way: %d hit time: %d\n", i, (int)slot->timestamp);
                 verbose("  cache tag hit for set %d way %d tag %X addr %lX\n",
                         set_index, i, tag, addr);
                 hit = true;
@@ -235,7 +236,6 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
         //     // printf("slot: %d\n", (int)slot->timestamp);
         //     // slot_least->timestamp = slot->timestamp;
         // }
-        printf("address %x\n",  (unsigned int)((slot->tag << (csp->index_bits + 2)) | (set_index << 2)));
     }
 
     if (!slot_found) {
