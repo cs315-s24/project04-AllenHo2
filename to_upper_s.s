@@ -1,4 +1,5 @@
 .global to_upper_s
+.align 4
 
 /*
     Convert character string to upper case

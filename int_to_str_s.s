@@ -1,4 +1,5 @@
 .global int_to_str_s
+.align 4
 
 # a0: 32 bit signed integer
 # a1: output string, assumed to be 32 chars

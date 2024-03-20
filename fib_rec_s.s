@@ -1,4 +1,5 @@
 .global fib_rec_s
+.align 4
 
 /*
 int fib_rec_c(int n) {
