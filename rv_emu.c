@@ -8,13 +8,13 @@
 #define DEBUG 0
 
 //global variables to count dynamic analysis
-int ir_count = 0;
-int total_count = 0;
-int load_count = 0;
-int store_count = 0;
-int jump_count = 0;
-int taken = 0;
-int not_taken = 0;
+// int ir_count = 0;
+// int total_count = 0;
+// int load_count = 0;
+// int store_count = 0;
+// int jump_count = 0;
+// int taken = 0;
+// int not_taken = 0;
 
 
 static void unsupported(char *s, uint32_t n) {
@@ -28,7 +28,7 @@ void emu_r_type(rv_state *rsp, uint32_t iw) {
     uint32_t rs2 = get_bits(iw, 20 ,5);
     uint32_t funct3 = get_bits(iw, 12 ,3);
     uint32_t funct7 = (iw >> 25) & 0b1111111;
-    ir_count++;
+    rsp->analysis.ir_count++;
     if (funct3 == 0b000 && funct7 == 0b0000000) { // add instruction 
         rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
     } else if (funct3 == 0b000 && funct7 == 0b0100000) { // sub instruction
@@ -60,11 +60,11 @@ void emu_i_type (rv_state *rsp, uint32_t iw) {
     uint32_t imm2 = get_bits(iw, 20, 12);
     
     int signed_im = sign_extend(imm2, 12);
-    ir_count++;
-    if (funct3 == 0b101 && imm == 0b0000000) {
+    rsp->analysis.ir_count++;
+    if (funct3 == 0b101 && imm == 0b0000000) { //srl
         rsp->regs[rd] = rsp->regs[rs1] >> shamt;
     } else if (funct3 == 0b001) { //slli
-        rsp->regs[rd] = rsp->regs[rs1] << shamt;
+        rsp->regs[rd] = rsp->regs[rs1] << shamt; 
     } else if (funct3 == 0b000) { //addi
         rsp->regs[rd] = rsp->regs[rs1] + signed_im;    
     } else {
@@ -84,28 +84,27 @@ void emu_b_type (rv_state *rsp, uint32_t iw) {
     uint32_t imm = (imm12 << 12) | (imm11 << 11) | (imm105 << 5) | (imm41 << 1);
     int bit = sign_extend(imm, 13); // sign extend
     if (((int)rsp->regs[rs1]) < ((int)rsp->regs[rs2]) && funct3 == 0b100) { // blt
-        taken++;
+        rsp->analysis.b_taken++;
         rsp->pc += bit;  
     } else if (((int)rsp->regs[rs1]) != ((int)rsp->regs[rs2]) && funct3 == 0b001){ //bne
-        taken++;
+        rsp->analysis.b_taken++;
         rsp->pc += bit;      
     } else if (((int)rsp->regs[rs1]) == ((int)rsp->regs[rs2]) && funct3 == 0b000){ //beq
-        taken++;
+        rsp->analysis.b_taken++;
         rsp->pc += bit;     
     } else if (((int)rsp->regs[rs1]) >= ((int)rsp->regs[rs2]) && funct3 == 0b101){ //bge
-        taken++;
+        rsp->analysis.b_taken++;
         rsp->pc += bit;     
     } else {
-        not_taken++;
+        rsp->analysis.b_not_taken++;
         rsp->pc += 4;     
-        // unsupported("B-type funct3", imm11);
     }
 }
 
 void emu_jalr(rv_state *rsp, uint32_t iw) {
     uint32_t rs1 = (iw >> 15) & 0b11111;  // Will be ra (aka x1)
     uint64_t val = rsp->regs[rs1];  // Value of regs[1]
-    jump_count++;
+    rsp->analysis.j_count++;
     rsp->pc = val;  // PC = return address
 }
 
@@ -117,7 +116,7 @@ void emu_jal(rv_state *rsp, uint32_t iw) {
     uint32_t imm = (imm1 << 1) | (imm11 << 11) | (imm12 << 12) | (imm20 << 20);
     uint32_t rd = (iw >> 7) & 0b11111;
     int64_t offset = sign_extend(imm, 21);
-    jump_count++;
+    rsp->analysis.j_count++;
     if(rd != 0) { //has to not be x0, which makes this into a jump instead of a jal
     rsp->regs[rd] = rsp->pc + 4;
     }
@@ -131,18 +130,17 @@ void emu_load(rv_state *rsp, uint32_t iw) {
     uint32_t imm2 = get_bits(iw, 20, 12);
     
     int64_t signed_im = sign_extend(imm2, 12);
-    // int64_t *pt = (int64_t*)rsp->regs[rs1] + signed_im;
-    load_count++;
-    if (funct3 == 0b000) {
+    rsp->analysis.ld_count++;
+    if (funct3 == 0b000) { //lb
        uint8_t *pt = (uint8_t*)(rsp->regs[rs1] + signed_im);
        rsp->regs[rd] = *(uint8_t*)pt;
-    } else if (funct3 == 0b010) {
+    } else if (funct3 == 0b010) { //lw
        uint32_t *pt = (uint32_t*)(rsp->regs[rs1] + signed_im);
        rsp->regs[rd] = *(uint32_t*)pt;
     } else if (funct3 == 0b001) {
        uint64_t *pt = (uint64_t*)(rsp->regs[rs1] + signed_im);
        rsp->regs[rd] = *(uint64_t*)pt;  
-    } else if (funct3 == 0b011) {
+    } else if (funct3 == 0b011) { //ld
        uint64_t *pt = (uint64_t*)(rsp->regs[rs1] + signed_im);
        rsp->regs[rd] = *(uint64_t*)pt;
     } else {
@@ -155,13 +153,11 @@ void emu_store(rv_state *rsp, uint32_t iw) {
     uint32_t imm1 = (iw >> 7) & 0b11111;
     uint32_t rs1 = (iw >> 15) & 0b11111;
     uint32_t rs2 = get_bits(iw, 20, 5);
-    // uint32_t funct3 = (iw >> 12) & 0b111;
     uint32_t funct3 = get_bits(iw, 12 ,3);
     uint32_t imm2 = get_bits(iw, 25, 7);
     uint32_t imm = (imm1) | (imm2 << 5);
     int64_t signed_im = sign_extend(imm, 12);
-    // uint64_t *pt = (uint64_t*)rsp->regs[rs1] + signed_im;
-    store_count++;
+    rsp->analysis.st_count++;
     if (funct3 == 0b000) { //sb
         uint8_t *pt = (uint8_t*)(rsp->regs[rs1] + signed_im);    
         *pt = (uint8_t)rsp->regs[rs2];
@@ -190,7 +186,7 @@ static void rv_one(rv_state *state) {
 #if DEBUG
     printf("iw: %x\n", iw);
 #endif
-    total_count++;
+    state->analysis.i_count++;
     switch (opcode) {
         case FMT_I_JALR:
         emu_jalr(state,iw);
@@ -204,13 +200,13 @@ static void rv_one(rv_state *state) {
         case FMT_I_LOAD: //I type load instructions
         emu_load(state,iw);
         break;
-        case FMT_SB:
+        case FMT_SB: //branch instructions
         emu_b_type(state,iw);
         break;  
-        case FMT_UJ:
+        case FMT_UJ: //jump instructions
         emu_jal(state,iw);
         break;  
-        case FMT_S:
+        case FMT_S: //store instructions
         emu_store(state,iw);
         break;  
         default:
@@ -250,14 +246,6 @@ static void print_pct(char *fmt, int numer, int denom) {
 }
 
 void rv_print(rv_analysis *a) {
-    a->ir_count = ir_count;
-    a->i_count = total_count;
-    a->ld_count = load_count;
-    a->st_count = store_count;
-    a->j_count = jump_count;
-    a->b_taken = taken;
-    a->b_not_taken = not_taken;
-
     int b_total = a->b_taken + a->b_not_taken;
 
     printf("=== Analysis\n");

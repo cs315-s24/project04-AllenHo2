@@ -150,7 +150,7 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     }
 
     csp->refs += 1;
-    // printf("iw of cache: %x\n", (int) addr);
+
     uint64_t tag = addr >> (csp->index_bits + csp->block_bits + 2);
     
     uint64_t addr_word = addr >> 2;
@@ -204,8 +204,7 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
         }
     }
 
-    if (!hit) {
-        // Need to change for block size > 1        
+    if (!hit) {    
         for(int i = 0 ; i < csp->block_size; i++) { //slide the whole block into the slot
             slot->block[i] = *(((uint32_t*)(b_base << 2)) + i);            
         }
